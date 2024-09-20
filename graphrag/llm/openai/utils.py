@@ -103,6 +103,13 @@ def try_parse_json_object(input: str) -> tuple[str, dict]:
     if result:
         return input, result
 
+    json_block = re.search(r"```(json)?\s+(.*)```", input, re.DOTALL | re.MULTILINE)
+    if json_block:
+        json_str = json_block.group(2)
+        result = json.loads(json_str)
+        if result:
+            return input, result
+
     _pattern = r"\{(.*)\}"
     _match = re.search(_pattern, input)
     input = "{" + _match.group(1) + "}" if _match else input

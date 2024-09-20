@@ -266,7 +266,7 @@ class GlobalSearch(BaseSearch):
         if _j == {}:
             return [{"answer": "", "score": 0}]
 
-        parsed_elements = json.loads(search_response).get("points")
+        parsed_elements = _j.get("points")
         if not parsed_elements or not isinstance(parsed_elements, list):
             return [{"answer": "", "score": 0}]
 
