@@ -23,6 +23,8 @@ from graphrag.llm import (
     create_openai_embedding_llm,
     create_tpm_rpm_limiters,
 )
+from graphrag.llm.ollama.create_ollama_client import create_ollama_client
+from graphrag.llm.ollama.factories import create_ollama_llm, create_ollama_embedding_llm
 
 if TYPE_CHECKING:
     from datashaper import VerbCallbacks
@@ -142,6 +144,28 @@ def _load_openai_chat_llm(
         azure,
     )
 
+def _load_ollama_llm(
+    on_error: ErrorHandlerFn,
+    cache: LLMCache,
+    config: dict[str, Any],
+):
+    return _create_ollama_llm(
+        OpenAIConfiguration({
+            # Set default values
+            **_get_base_config(config),
+            "model": config.get("model", "mixtral"),
+            "deployment_name": config.get("deployment_name"),
+            "temperature": config.get("temperature", 0.0),
+            "frequency_penalty": config.get("frequency_penalty", 0),
+            "presence_penalty": config.get("presence_penalty", 0),
+            "top_p": config.get("top_p", 1),
+            "max_tokens": config.get("max_tokens"),
+            "n": config.get("n"),
+        }),
+        on_error,
+        cache,
+    )
+
 
 def _load_openai_embeddings_llm(
     on_error: ErrorHandlerFn,
@@ -161,6 +185,24 @@ def _load_openai_embeddings_llm(
         on_error,
         cache,
         azure,
+    )
+
+def _load_ollama_embeddings_llm(
+    on_error: ErrorHandlerFn,
+    cache: LLMCache,
+    config: dict[str, Any],
+):
+    # TODO: Inject Cache
+    return _create_ollama_embeddings_llm(
+        OpenAIConfiguration({
+            **_get_base_config(config),
+            "model": config.get(
+                "embeddings_model", config.get("model", "nomic-embed-text")
+            ),
+            "deployment_name": config.get("deployment_name"),
+        }),
+        on_error,
+        cache,
     )
 
 
@@ -226,12 +268,20 @@ loaders = {
         "load": _load_azure_openai_chat_llm,
         "chat": True,
     },
+    LLMType.Ollama: {
+        "load": _load_ollama_llm,
+        "chat": True,
+    },
     LLMType.OpenAIEmbedding: {
         "load": _load_openai_embeddings_llm,
         "chat": False,
     },
     LLMType.AzureOpenAIEmbedding: {
         "load": _load_azure_openai_embeddings_llm,
+        "chat": False,
+    },
+    LLMType.OllamaEmbedding: {
+        "load": _load_ollama_embeddings_llm,
         "chat": False,
     },
     LLMType.StaticResponse: {
@@ -270,6 +320,19 @@ def _create_openai_completion_llm(
         client, configuration, cache, limiter, semaphore, on_error=on_error
     )
 
+def _create_ollama_llm(
+    configuration: OpenAIConfiguration,
+    on_error: ErrorHandlerFn,
+    cache: LLMCache,
+) -> CompletionLLM:
+    """Create an openAI chat llm."""
+    client = create_ollama_client(configuration=configuration)
+    # @todo
+    limiter = None
+    semaphore = None
+    return create_ollama_llm(
+        client, configuration, cache, limiter, semaphore, on_error=on_error
+    )
 
 def _create_openai_embeddings_llm(
     configuration: OpenAIConfiguration,
@@ -285,6 +348,19 @@ def _create_openai_embeddings_llm(
         client, configuration, cache, limiter, semaphore, on_error=on_error
     )
 
+def _create_ollama_embeddings_llm(
+    configuration: OpenAIConfiguration,
+    on_error: ErrorHandlerFn,
+    cache: LLMCache,
+) -> EmbeddingLLM:
+    """Create an ollama embeddings llm."""
+    client = create_ollama_client(configuration=configuration)
+    # @todo
+    limiter = None
+    semaphore = None
+    return create_ollama_embedding_llm(
+        client, configuration, cache, limiter, semaphore, on_error=on_error
+    )
 
 def _create_limiter(configuration: OpenAIConfiguration) -> LLMLimiter:
     limit_name = configuration.model or configuration.deployment_name or "default"
